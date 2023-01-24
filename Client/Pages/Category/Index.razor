@@ -1,0 +1,83 @@
+﻿@page "/category/index"
+@using RestaurantSystem.Core.Entities;
+@using RestaurantSystem.Shared.Model
+<PageTitle>Gestion de Categorias</PageTitle>
+@inject HttpClient httpClient
+@inject NavigationManager NavManager
+@inject IDialogService DialogService
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<MudText Typo="Typo.h6" Class="my-4">Categorias</MudText>
+<MudButton Class="mb-4" Variant="Variant.Filled" Color="Color.Success" OnClick="@OnCreateClick">Agregar</MudButton>
+<MudTable Items="@menuItemCategories" Hover="true" Breakpoint="Breakpoint.Sm" Filter="new Func<MenuItemCategory,bool>(FilterFunc1)" Loading="@IsLoading">
+    <ToolBarContent>
+        <MudTextField @bind-Value="searchString" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        <MudSpacer />
+        <MudSpacer />
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Id</MudTh>
+        <MudTh>Descripcion</MudTh>
+        <MudTh>Acciones</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.Id</MudTd>
+        <MudTd DataLabel="Descripcion">@context.Description</MudTd>
+        <MudTd DataLabel="Acciones">
+            <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Secondary" OnClick="@(() => OnEditClick(context.Id))" >Editar</MudButton>
+            <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Error" OnClick="@(() => OnDeleteClick(context.Id))">Eliminar</MudButton>
+
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+@code {
+    private IEnumerable<MenuItemCategory> menuItemCategories { get; set; } = new List<MenuItemCategory>();
+    private bool IsLoading { get; set; } = true;
+    private string searchString = "";
+    private bool FilterFunc1(MenuItemCategory element) => FilterFunc(element, searchString);
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAll();
+    }
+
+    private async Task LoadAll(){
+        IsLoading = true;
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<IEnumerable<MenuItemCategory>>>("api/category");
+        IsLoading = false;
+        menuItemCategories = result!.Data;
+    }
+
+    private bool FilterFunc(RestaurantSystem.Core.Entities.MenuItemCategory element, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (element.Description.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+    void OnCreateClick()
+    {
+        NavManager.NavigateTo("/category/create");
+    }
+
+    void OnEditClick(int Id)
+    {
+        NavManager.NavigateTo($"/category/edit/{Id}");
+    }
+
+    async Task OnDeleteClick(int Id)
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+        var response = DialogService.Show<ConfirmationDialog>("Confirmación", options);
+        var answer = await response.Result;
+
+        if(!answer.Cancelled) {
+            IsLoading = true;
+            await httpClient.DeleteAsync($"api/category/{Id}");
+            IsLoading = false;
+            await LoadAll();
+        }
+    }
+}

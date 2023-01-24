@@ -1,0 +1,97 @@
+﻿@page "/user/index"
+@using RestaurantSystem.Core.Constants
+@using RestaurantSystem.Core.CustomEntities
+@using RestaurantSystem.Shared.Model
+<PageTitle>Gestion de Usuarios</PageTitle>
+@inject HttpClient httpClient
+@inject NavigationManager NavManager
+@inject IDialogService DialogService
+@inject ISnackbar Snackbar
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<MudText Typo="Typo.h6" Class="my-4">Usuarios</MudText>
+<MudButton Class="mb-4" Variant="Variant.Filled" Color="Color.Success" OnClick="@OnCreateClick">Agregar</MudButton>
+
+
+<MudTable Items="@users" Hover="true" Breakpoint="Breakpoint.Sm" Filter="new Func<ApplicationUser, bool>(FilterFunc1)" Loading="@IsLoading">
+    <ToolBarContent>
+        <MudTextField @bind-Value="searchString" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        <MudSpacer />
+        <MudSpacer />
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Nombres</MudTh>
+        <MudTh>Apellidos</MudTh>
+        <MudTh>Email</MudTh>
+        <MudTh>Acciones</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.Names</MudTd>
+        <MudTd DataLabel="Descripcion">@context.LastsNames</MudTd>
+        <MudTd DataLabel="Cant. Asientos">@context.Email</MudTd>
+        <MudTd DataLabel="Acciones">
+            <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Secondary" OnClick="@(() => OnEditClick(context.Id))">Editar</MudButton>
+            @*<MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Error" OnClick="@(() => OnDeleteClick(context.Id))">Eliminar</MudButton>*@
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+
+@code {
+    private IEnumerable<ApplicationUser> users { get; set; } = new List<ApplicationUser>();
+    private bool IsLoading { get; set; } = true;
+    private string searchString = "";
+    private bool FilterFunc1(ApplicationUser element) => FilterFunc(element, searchString);
+
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAll();
+    }
+
+    private async Task LoadAll()
+    {
+        IsLoading = true;
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<IEnumerable<ApplicationUser>>>("api/User");
+        IsLoading = false;
+        users = result!.Data;
+    }
+
+    private bool FilterFunc(ApplicationUser element, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (element.LastsNames.Contains(searchString, StringComparison.OrdinalIgnoreCase) || element.Names.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+
+    void OnCreateClick()
+    {
+        NavManager.NavigateTo("/user/create");
+    }
+
+    void OnEditClick(string Id)
+    {
+        NavManager.NavigateTo($"/user/edit/{Id}");
+    }
+
+    async Task OnDeleteClick(string Id)
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+        var response = DialogService.Show<ConfirmationDialog>("Confirmación", options);
+        var answer = await response.Result;
+
+        if (!answer.Cancelled)
+        {
+            IsLoading = true;
+            await httpClient.DeleteAsync($"api/user/{Id}");
+            Snackbar.Add(SnackbarMessages.RegisterDeleted, Severity.Success);
+            IsLoading = false;
+            await LoadAll();
+        }
+    }
+
+}

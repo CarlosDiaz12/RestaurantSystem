@@ -1,0 +1,45 @@
+﻿@page "/rol/edit/{Id}"
+@using Microsoft.AspNetCore.Identity
+@using RestaurantSystem.Core.Constants
+@using RestaurantSystem.Shared.DTOs.User
+@using RestaurantSystem.Shared.Model
+@inject NavigationManager NavManager
+<PageTitle>Editar Usuario</PageTitle>
+@inject HttpClient httpClient
+@inject ISnackbar Snackbar
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-5">
+    <MudText Typo="Typo.h6" Class="my-4">Editar Rol</MudText>
+    <RestaurantSystem.Client.Pages.Rol.TableForm model="@dto" processing="@_processing" ClickEvent="@EditEvent"></RestaurantSystem.Client.Pages.Rol.TableForm>
+</MudContainer>
+
+@code {
+
+    [Parameter]
+    public string Id { get; set; }
+    private IdentityRole dto { get; set; } = new();
+    bool success;
+    private bool _processing = false;
+
+    protected async override Task OnInitializedAsync()
+    {
+        _processing = true;
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<IdentityRole>>($"api/rol/GetRolById/{Id}");
+        dto.Name = result!.Data.Name;
+        dto.Id = Id;
+        _processing = false;
+    }
+    async Task EditEvent()
+    {
+        _processing = true;
+        await httpClient.PutAsJsonAsync<IdentityRole>("api/rol/UpdateRol", dto);
+        Snackbar.Add(SnackbarMessages.RegisterUpdated, Severity.Success);
+        _processing = false;
+        NavManager.NavigateTo("/rol/index");
+    }
+
+ 
+
+}

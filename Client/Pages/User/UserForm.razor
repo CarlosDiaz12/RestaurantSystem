@@ -1,0 +1,55 @@
+﻿@using Microsoft.AspNetCore.Identity
+@using RestaurantSystem.Shared.DTOs.User
+@using RestaurantSystem.Shared.Model
+@inject HttpClient httpClient
+
+<MudPaper Class="pa-4">
+    <MudForm Model="model" @bind-IsValid=success>
+        <MudTextField Class="mt-3" @bind-Value="model.Names" InputType="InputType.Text" Label="Nombres" Required="true" RequiredError="Nombres es requerida!" />
+        <MudTextField Class="mt-3" @bind-Value="model.LastsNames" InputType="InputType.Text" Label="Apellidos" Required="true" RequiredError="Apellidos es requerida!" />
+        <MudTextField Class="mt-3" @bind-Value="model.Email" InputType="InputType.Email" Label="Correo" Required="true" RequiredError="Correo es requerida!" />
+
+        <MudSelect T="string" Label="Roles" @bind-Value="model.Rol" AnchorOrigin="Origin.BottomCenter" Required="true" RequiredError="Rol es requerida!">
+            @foreach (var item in roles)
+            {
+                <MudSelectItem Value="@(item.Name)" />
+            }
+        </MudSelect>
+
+        <MudButton OnClick="OnClickEvent" Class="mt-5" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!success || processing)">
+            @if (processing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Cargando</MudText>
+            }
+            else
+            {
+                <MudText>Guardar</MudText>
+            }
+        </MudButton>
+    </MudForm>
+</MudPaper>
+
+@code {
+    [Parameter]
+    public CreateOrEditUserDto model { get; set; } = new();
+    bool success { get; set; }
+    [Parameter]
+    public bool processing { get; set; }
+    [Parameter]
+    public EventCallback ClickEvent { get; set; }
+
+    public IEnumerable<IdentityRole> roles { get; set; } = new List<IdentityRole>();
+
+    protected override async Task OnInitializedAsync()
+    {
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<IEnumerable<IdentityRole>>>("api/rol/GetRoles");
+        roles = result!.Data;
+    }
+
+    private async Task OnClickEvent()
+    {
+        await ClickEvent.InvokeAsync();
+    }
+
+}

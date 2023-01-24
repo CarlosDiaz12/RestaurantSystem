@@ -1,0 +1,81 @@
+﻿@page "/menuitem/index"
+@using RestaurantSystem.Shared.Model
+<PageTitle>Gestion de Items de Menu</PageTitle>
+@inject HttpClient httpClient
+@inject NavigationManager NavManager
+@inject IDialogService DialogService
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<MudText Typo="Typo.h6" Class="my-4">Items</MudText>
+<MudButton Class="mb-4" Variant="Variant.Filled" Color="Color.Success" OnClick="@OnCreateClick">Agregar</MudButton>
+<MudTable Items="@menuItem" Hover="true" Breakpoint="Breakpoint.Sm" Filter="new Func<RestaurantSystem.Core.Entities.MenuItem,bool>(FilterFunc1)" Loading="@IsLoading">
+    <ToolBarContent>
+        <MudTextField @bind-Value="searchString" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+        <MudSpacer />
+        <MudSpacer />
+    </ToolBarContent>
+    <HeaderContent>
+        <MudTh>Id</MudTh>
+        <MudTh>Descripcion</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Id">@context.MenuId</MudTd>
+        <MudTd DataLabel="Descripcion">@context.Description</MudTd>
+        <MudTd DataLabel="Acciones">
+            <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Secondary" OnClick="@(() => OnEditClick(context.Id))" >Editar</MudButton>
+            <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Error" OnClick="@(() => OnDeleteClick(context.Id))">Eliminar</MudButton>
+
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+@code {
+    private IEnumerable<RestaurantSystem.Core.Entities.MenuItem> menuItem { get; set; } = new List<RestaurantSystem.Core.Entities.MenuItem>();
+    private bool IsLoading { get; set; } = true;
+    private string searchString = "";
+    private bool FilterFunc1(RestaurantSystem.Core.Entities.MenuItem element) => FilterFunc(element, searchString);
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAll();
+    }
+
+    private async Task LoadAll(){
+        IsLoading = true;
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<IEnumerable<RestaurantSystem.Core.Entities.MenuItem>>>("api/menuitem");
+        IsLoading = false;
+        menuItem = result!.Data;
+    }
+
+    private bool FilterFunc(RestaurantSystem.Core.Entities.MenuItem element, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (element.Description.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+    void OnCreateClick()
+    {
+        NavManager.NavigateTo("/menuitem/create");
+    }
+
+    void OnEditClick(int Id)
+    {
+        NavManager.NavigateTo($"/menuitem/edit/{Id}");
+    }
+
+    async Task OnDeleteClick(int Id)
+    {
+        var options = new DialogOptions { CloseOnEscapeKey = true };
+        var response = DialogService.Show<ConfirmationDialog>("Confirmación", options);
+        var answer = await response.Result;
+
+        if(!answer.Cancelled) {
+            IsLoading = true;
+            await httpClient.DeleteAsync($"api/menuitem/{Id}");
+            IsLoading = false;
+            await LoadAll();
+        }
+    }
+}

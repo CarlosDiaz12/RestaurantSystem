@@ -1,0 +1,240 @@
+﻿@page "/order/create"
+@using Microsoft.AspNetCore.Authorization;
+@using Microsoft.AspNetCore.Identity;
+@using RestaurantSystem.Core.Constants;
+@using RestaurantSystem.Core.CustomEntities;
+@using RestaurantSystem.Core.Entities
+@using RestaurantSystem.Shared.DTOs.Order
+@using RestaurantSystem.Shared.Model
+@using ResturantSystem.Shared
+@using System.Security.Claims;
+@inject NavigationManager NavManager
+<PageTitle>Crear Orden</PageTitle>
+@inject HttpClient httpClient
+@inject ISnackbar Snackbar
+@attribute [Authorize]
+<MudContainer MaxWidth="MaxWidth.Large" Class="mt-5">
+    <MudGrid Justify="Justify.SpaceAround">
+        <MudItem xs="8">
+            <MudPaper Class="p-3 mb-2">
+                <MudText Typo="Typo.h6">Ordenar</MudText>
+            </MudPaper>
+            <MudPaper Class="p-2">
+                <MudForm Model="model" @bind-IsValid=success>
+                    <MudStack Row="true">
+                        <MudItem xs="6">
+                            <MudTextField Immediate="true" Class="mb-3" Variant="Variant.Outlined" @bind-Value="model.ClientName" Label="Nombre Cliente" T="string" Required="true" RequiredError="Nombre Cliente es requerido!" />
+                        </MudItem>
+                        <MudItem xs="6">
+                            <MudSelect Immediate="true" Class="mb-3" T="int" Label="Mesa" Variant="Variant.Outlined" @bind-Value="model.TableId">
+                                <MudSelectItem Value="0">Orden para llevar</MudSelectItem>
+                                @foreach (var opcion in tables)
+                                {
+                                    <MudSelectItem Value="opcion.Id">@opcion.Description</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudItem>
+                    </MudStack>
+
+                    <MudText Typo="Typo.subtitle2" Class="my-4">Items</MudText>
+                    <MudTable Loading="@_processingItemsList" Class="mb-5" Striped="true" Items="@menuItems" MultiSelection="true" @bind-SelectedItems="selectedItems" Filter="new Func<SelectedOrderItemDto,bool>(FilterFunc1)" Hover="true">
+                        <ToolBarContent>
+                            <MudTextField @bind-Value="searchString" Placeholder="Search" Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" IconSize="Size.Medium" Class="mt-0"></MudTextField>
+                            <MudSpacer />
+                            <MudSpacer />
+                        </ToolBarContent>
+                        <HeaderContent>
+                            <MudTh>Descripcion</MudTh>
+                            <MudTh>Precio</MudTh>
+                            <MudTh>Cantidad</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Descripcion">@context.Description</MudTd>
+                            <MudTd DataLabel="Precio">@context.Price</MudTd>
+                            <MudTd DataLabel="Cantidad">
+                                <MudGrid>
+                                    <MudItem>
+                                        <MudPaper Elevation="0">
+                                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Remove" OnClick="() => OnRemoveQuantityClick(context)" Variant="Variant.Filled" Color="Color.Primary" />
+                                        </MudPaper>
+                                    </MudItem>
+                                    <MudItem>
+                                        <MudPaper Elevation="0" MaxWidth="40px">
+                                            <MudTextField ReadOnly Style="margin-top: 0px" FullWidth="false" @bind-Value="@context.SelectedQuantity" T="int"></MudTextField>
+                                        </MudPaper>
+                                    </MudItem>
+                                    <MudItem>
+                                        <MudPaper Elevation="0">
+                                            <MudIconButton Size="Size.Small" Icon="@Icons.Material.Filled.Add" OnClick="() => OnAddQuantityClick(context)" Variant="Variant.Filled" Color="Color.Primary" />
+                                        </MudPaper>
+                                    </MudItem>
+                                </MudGrid>
+                            </MudTd>
+                        </RowTemplate>
+                        <PagerContent>
+                            <MudTablePager PageSizeOptions="new int[]{5, 10, 50 }" />
+                        </PagerContent>
+                    </MudTable>
+                </MudForm>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="4">
+            <MudPaper Class="p-2 d-flex align-end justify-content-center mud-width-full">
+                <MudGrid>
+                    <MudItem xs="12">
+                        <MudStack>
+                            <MudStack Row="true">
+                                <MudText Typo="Typo.subtitle2">SubTotal</MudText>
+                                <MudText>RD$ @SubTotal</MudText>
+                            </MudStack>
+                            <MudStack Row="true">
+                                <MudText Typo="Typo.subtitle2">ITBIS</MudText>
+                                <MudText>RD$ @Itbis</MudText>
+                            </MudStack>
+                            <MudStack Row="true">
+                                <MudText Typo="Typo.subtitle2">Total</MudText>
+                                <MudText>RD$ @Total</MudText>
+                            </MudStack>
+                        </MudStack>
+                    </MudItem>
+                    <MudItem xs="12">
+                        <MudButton OnClick="OnClickEvent" FullWidth="true" Size="Size.Large" Class="mt-5" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!success || _processing)">
+                            @if (_processing)
+                            {
+                                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                                <MudText Class="ms-2">Cargando</MudText>
+                            }
+                            else
+                            {
+                                <MudText>Ordenar</MudText>
+                            }
+                        </MudButton>
+                    </MudItem>
+                </MudGrid>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+</MudContainer>
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+    private List<RestaurantSystem.Core.Entities.Table> tables { get; set; } = new List<RestaurantSystem.Core.Entities.Table>();
+    private string searchString = "";
+    private bool FilterFunc1(SelectedOrderItemDto element) => FilterFunc(element, searchString);
+    private PlaceOrderDto model { get; set; } = new();
+    private bool _processing = false;
+    private bool _processingItemsList = false;
+    bool success { get; set; }
+    string userId { get; set; }
+    public List<SelectedOrderItemDto> menuItems { get; set; } = new();
+    private HashSet<SelectedOrderItemDto> _selectedItems = new HashSet<SelectedOrderItemDto>();
+    private HashSet<SelectedOrderItemDto> selectedItems
+    {
+        get
+        {
+            return this._selectedItems;
+        }
+        set
+        {
+            this._selectedItems = value;
+            CalculateSummary();
+        }
+    }
+    private double SubTotal { get; set; }
+    private double Total { get; set; }
+    private double Itbis { get; set; }
+    protected async override Task OnInitializedAsync()
+    {
+        _processingItemsList = true;
+        await GetCurrentUser();
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<IEnumerable<MenuItem>>>("api/menuitem");
+        if (result!.Success)
+        {
+            menuItems = MapMenuItemsToDto(result!.Data.ToList());
+        }
+        await LoadTablesList();
+        _processingItemsList = false;
+    }
+
+    private async Task GetCurrentUser()
+    {
+        var user = (await authenticationStateTask).User;
+        if (user.Identity!.IsAuthenticated)
+        {
+            var currentUserId = user.Claims.FirstOrDefault(x => x.Type == "sub");
+            if (currentUserId != null)
+                this.userId = currentUserId.Value;      
+        }
+    }
+
+    private async Task LoadTablesList()
+    {
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<List<RestaurantSystem.Core.Entities.Table>>>("api/table");
+        if (result!.Success)
+        {
+            this.tables = result.Data;
+        }
+    }
+
+    void OnRemoveQuantityClick(SelectedOrderItemDto item)
+    {
+        if (item.SelectedQuantity > 0)
+            item.SelectedQuantity -= 1;
+
+        CalculateSummary();
+    }
+
+    void OnAddQuantityClick(SelectedOrderItemDto item)
+    {
+        item.SelectedQuantity += 1;
+        CalculateSummary();
+    }
+    async Task OnClickEvent()
+    {
+        try
+        {
+            _processing = true;
+            model.WaiterUserId = this.userId;
+            model.Items = MapSelectedItemsToDto(selectedItems);
+            var result = await httpClient.PostAsJsonAsync<PlaceOrderDto>("api/order/PlaceOrder", model);
+            _processing = false;
+
+            var response = await result.Content.ReadFromJsonAsync<ApiResponse<int>>();
+            if (!response!.Success)
+                throw new Exception(response.ErrorMessage);
+
+            Snackbar.Add(SnackbarMessages.RegisterCreated, Severity.Success);
+            NavManager.NavigateTo("/order/index");
+        }
+        catch (Exception ex)
+        {
+            Snackbar.Configuration.PositionClass = Defaults.Classes.Position.TopRight;
+            Snackbar.Add(ex.Message, Severity.Error);
+        }
+    }
+
+    private void CalculateSummary()
+    {
+        this.SubTotal = selectedItems.Select(x => x.Price * x.SelectedQuantity).Sum();
+        this.Itbis = Math.Round(SubTotal * Constants.ItbisPercentage, 2, MidpointRounding.AwayFromZero);
+        this.Total = SubTotal + Itbis;
+    }
+
+
+    private List<SelectedOrderItemDto> MapMenuItemsToDto(List<MenuItem> menuItems)
+    => menuItems.Select(x => new SelectedOrderItemDto { ItemId = x.Id, SelectedQuantity = 0, Price = x.Price, Description = x.Description }).ToList();
+
+    private List<OrderItemDto> MapSelectedItemsToDto(HashSet<SelectedOrderItemDto> menuItems)
+    => menuItems.Select(x => new OrderItemDto { ItemId = x.ItemId, Quantity = x.SelectedQuantity }).ToList();
+
+    private bool FilterFunc(SelectedOrderItemDto element, string searchString)
+    {
+        if (string.IsNullOrWhiteSpace(searchString))
+            return true;
+        if (element.Description.Contains(searchString, StringComparison.OrdinalIgnoreCase))
+            return true;
+
+        return false;
+    }
+}

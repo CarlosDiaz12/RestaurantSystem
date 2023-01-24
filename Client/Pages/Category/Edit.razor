@@ -1,0 +1,36 @@
+﻿@page "/category/edit/{Id:int}"
+@using RestaurantSystem.Shared.DTOs.Category
+@using RestaurantSystem.Shared.Model
+@inject NavigationManager NavManager
+<PageTitle>Editar Categoria</PageTitle>
+@inject HttpClient httpClient
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-5">
+    <MudText Typo="Typo.h6" Class="my-4">Editar Categoria</MudText>
+    <CategoryForm model="@dto" processing="@_processing" ClickEvent="@EditEvent" />
+</MudContainer>
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    private CreateOrEditCategoryDto dto { get; set; } = new();
+    bool success;
+    private bool _processing = false;
+
+    protected async override Task OnInitializedAsync()
+    {
+        _processing = true;
+        var result =  await httpClient.GetFromJsonAsync<ApiResponse<RestaurantSystem.Core.Entities.MenuItemCategory>>($"api/category/{Id}");
+        dto.Description = result!.Data.Description;
+        dto.Id = Id;
+        _processing = false;
+    }
+    async Task EditEvent()
+    {
+        _processing = true;
+        await httpClient.PutAsJsonAsync<CreateOrEditCategoryDto>("api/category", dto);
+        _processing = false;
+        NavManager.NavigateTo("/category/index");
+    }
+}

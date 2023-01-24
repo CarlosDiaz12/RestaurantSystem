@@ -1,0 +1,26 @@
+﻿@page "/menuitem/create"
+@using RestaurantSystem.Shared.DTOs.MenuItem
+@using RestaurantSystem.Shared.Model
+@inject NavigationManager NavManager
+<PageTitle>Crear Item de Menu</PageTitle>
+@inject HttpClient httpClient
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-5">
+    <MudText Typo="Typo.h6" Class="my-4">Crear Item de Menu</MudText>
+    <MenuItemForm model="@dto" processing="@_processing" ClickEvent="@Save"/>
+</MudContainer>
+@code {
+    private CreateOrEditMenuItemDto dto { get; set; } = new();
+    bool success;
+    private bool _processing = false;
+    async Task Save()
+    {
+        _processing = true;
+        await httpClient.PostAsJsonAsync<CreateOrEditMenuItemDto>("api/menuitem", dto);
+        _processing = false;
+        NavManager.NavigateTo("/menuitem/index");
+    }
+}

@@ -1,0 +1,152 @@
+﻿@page "/"
+@using Microsoft.AspNetCore.WebUtilities
+@using RestaurantSystem.Core.Enums
+@using RestaurantSystem.Shared.DTOs
+@using RestaurantSystem.Shared.Model
+@inject HttpClient httpClient
+@inject IDialogService Dialog
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+<PageTitle>Dashboard</PageTitle>
+
+@if(isLoading){
+  <MudGrid>
+        <MudItem Class="d-flex align-center justify-center py-8" xs="12">
+            <MudProgressCircular  Color="Color.Primary" Size="Size.Large" Indeterminate="true" />
+        </MudItem>
+  </MudGrid>
+}else{
+    <MudGrid Spacing="@spacing" Justify="Justify.Center" Class="mt-16">
+
+    <MudItem xs="4">
+        <MudText Typo="Typo.h6">PENDING</MudText>
+      
+        @foreach (var item in pendingOrders)
+        {
+            <MudCard Class="mt-8">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                        <MudText Typo="Typo.h6">@item.ClientName - #@item.Id</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                        @if (item.TableId.HasValue)
+                        {
+                            <MudText>@item.Table.Description</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Pedido para llevar</MudText>
+                        }
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Filled" OnClick="@((e) => OpenOrderDetails(item))" StartIcon="@Icons.Material.Filled.Search" Color="Color.Info">Ver</MudButton>
+                </MudCardActions>
+            </MudCard>
+        }
+
+    </MudItem>
+
+    <MudItem xs="4">
+        <MudText Typo="Typo.h6">IN PROGRESS</MudText>
+
+
+        @foreach (var item in inProgressOrders)
+        {
+                <MudCard Class="mt-8">
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">@item.ClientName - #@item.Id</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        @if (item.TableId.HasValue)
+                        {
+                            <MudText>@item.Table.Description</MudText>
+                        }
+                        else
+                        {
+                            <MudText>Pedido para llevar</MudText>
+                        }
+                    </MudCardContent>
+                    <MudCardActions>
+                    <MudButton Variant="Variant.Filled" OnClick="@((e) => OpenOrderDetails(item))" StartIcon="@Icons.Material.Filled.Search" Color="Color.Info">Ver</MudButton>
+                    </MudCardActions>
+                </MudCard>
+        }
+    </MudItem>
+
+    <MudItem xs="4">
+        <MudText Typo="Typo.h6">DONE</MudText>
+
+
+        @foreach (var item in doneOrders)
+        {
+            <MudCard Class="mt-8">
+                <MudCardHeader>
+                    <CardHeaderContent>
+                            <MudText Typo="Typo.h6">@item.ClientName - #@item.Id</MudText>
+                    </CardHeaderContent>
+                </MudCardHeader>
+                <MudCardContent>
+                        @if (item.TableId.HasValue)
+                        {
+                           <MudText>@item.Table.Description</MudText>
+                        } else {
+                            <MudText>Pedido para llevar</MudText>
+                        }
+                </MudCardContent>
+                <MudCardActions>
+                    <MudButton Variant="Variant.Filled" OnClick="@((e) => OpenOrderDetails(item))" StartIcon="@Icons.Material.Filled.Search" Color="Color.Info">Ver</MudButton>
+                </MudCardActions>
+            </MudCard>
+        }
+    </MudItem>
+</MudGrid>
+}
+
+
+@code {
+    public int spacing { get; set; } = 6;
+    public bool isLoading { get; set; } = false;
+    IEnumerable<ListOrderDto> pendingOrders = new List<ListOrderDto>();
+    IEnumerable<ListOrderDto> inProgressOrders = new List<ListOrderDto>();
+    IEnumerable<ListOrderDto> doneOrders = new List<ListOrderDto>();
+
+    protected override async Task OnInitializedAsync()
+    {
+
+        await GetAll();
+    }
+
+    async Task GetAll() {
+
+        isLoading = true;
+        Dictionary<string, string> filter = new Dictionary<string, string> {
+            //  ["fecha"] = DateTime.Now.ToString("yyyy-MM-dd")
+        };
+
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<IEnumerable<ListOrderDto>>>(QueryHelpers.AddQueryString("api/order", filter));
+
+        this.pendingOrders = result!.Data.Where(o => o.Status == OrderStatusEnum.PENDING.ToString());
+        this.inProgressOrders = result!.Data.Where(o => o.Status == OrderStatusEnum.IN_PROGRESS.ToString());
+        this.doneOrders = result!.Data.Where(o => o.Status == OrderStatusEnum.DONE.ToString());
+        isLoading = false;
+
+    }
+
+    private async Task OpenOrderDetails(ListOrderDto orderDto)
+    {
+        var parameters = new DialogParameters { ["orderDetail"] = orderDto };
+        DialogOptions options = new DialogOptions() { MaxWidth = MaxWidth.Medium, FullWidth = true };
+        var response = Dialog.Show<OrderDetail>("", parameters, options);
+        var answer = await response.Result;
+
+        if (answer.Cancelled)
+        {
+            await GetAll();
+        }
+
+    }
+
+}

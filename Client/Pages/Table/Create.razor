@@ -1,0 +1,26 @@
+﻿@page "/table/create"
+@using RestaurantSystem.Shared.DTOs.Table
+@using RestaurantSystem.Shared.Model
+@inject NavigationManager NavManager
+<PageTitle>Crear Mesa</PageTitle>
+@inject HttpClient httpClient
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-5">
+    <MudText Typo="Typo.h6" Class="my-4">Crear Mesa</MudText>
+    <TableForm model="@dto" processing="@_processing" ClickEvent="@Save"/>
+</MudContainer>
+
+@code {
+    private CreateOrEditTableDto dto { get; set; } = new();
+    bool success;
+    private bool _processing = false;
+    async Task Save()
+    {
+        _processing = true;
+        await httpClient.PostAsJsonAsync<CreateOrEditTableDto>("api/table", dto);
+        _processing = false;
+        NavManager.NavigateTo("/table/index");
+    }
+}

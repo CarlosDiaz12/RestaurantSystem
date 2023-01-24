@@ -1,0 +1,73 @@
+﻿@using RestaurantSystem.Core.Entities;
+@using RestaurantSystem.Shared.DTOs.MenuItem
+@using RestaurantSystem.Shared.Model
+@inject HttpClient httpClient
+
+
+<MudPaper Class="pa-4">
+    <MudForm Model="model" @bind-IsValid=success>
+        <MudTextField Immediate="true" Class="my-3" @bind-Value="model.Description" T="string" Label="Descripcion" Required="true" RequiredError="Descripcion es requerida!" />
+        <MudSelect Immediate="true" Class="my-3" T="int" Label="Categoria" Variant="Variant.Outlined" @bind-Value="model.CategoryId" Required="true" RequiredError="Categoria es requerida!">
+            <MudSelectItem Value="0" Disabled="true">Seleccione una opcion</MudSelectItem>
+            @foreach (var opcion in menuItemCategories)
+            {
+                <MudSelectItem Value="opcion.Id">@opcion.Description</MudSelectItem>
+            }
+        </MudSelect>
+
+        <MudSelect Immediate="true" Class="my-3" T="int" Label="Menu" Variant="Variant.Outlined" @bind-Value="model.MenuId" Required="true" RequiredError="Menu es requerido!">
+            <MudSelectItem Value="0" Disabled="true">Seleccione una opcion</MudSelectItem>
+            @foreach (var opcion in menus)
+            {
+                <MudSelectItem Value="opcion.Id">@opcion.Description</MudSelectItem>
+            }
+        </MudSelect>
+        <MudButton OnClick="OnClickEvent" Class="mt-5" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!success || processing)">
+            @if (processing)
+            {
+                <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                <MudText Class="ms-2">Cargando</MudText>
+            }
+            else
+            {
+                <MudText>Guardar</MudText>
+            }
+        </MudButton>
+    </MudForm>
+</MudPaper>
+
+@code {
+    [Parameter]
+    public CreateOrEditMenuItemDto model { get; set; }
+    bool success { get; set; }
+    [Parameter]
+    public bool processing { get; set; }
+    [Parameter]
+    public EventCallback ClickEvent { get; set; }
+    public List<MenuItemCategory> menuItemCategories { get; set; } = new();
+    public List<Menu> menus { get; set; } = new();
+
+    protected async override Task OnInitializedAsync()
+    {
+        await LoadCategories();
+        await LoadMenus();
+    }
+
+    private async Task LoadMenus()
+    {
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<IEnumerable<Menu>>>("api/menu");
+        this.menus = result!.Data.ToList();
+    }
+
+    private async Task LoadCategories()
+    {
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<IEnumerable<MenuItemCategory>>>("api/category");
+        this.menuItemCategories = result!.Data.ToList();
+    }
+
+    private async Task OnClickEvent()
+    {
+        await ClickEvent.InvokeAsync();
+    }
+
+}

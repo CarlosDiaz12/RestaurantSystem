@@ -1,0 +1,25 @@
+﻿@page "/category/create"
+@using RestaurantSystem.Shared.DTOs.Category
+@using RestaurantSystem.Shared.Model
+@inject NavigationManager NavManager
+<PageTitle>Crear Categoria</PageTitle>
+@inject HttpClient httpClient
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-5">
+    <MudText Typo="Typo.h6" Class="my-4">Crear Categoria</MudText>
+    <CategoryForm model="@dto" processing="@_processing" ClickEvent="@Save"/>
+</MudContainer>
+@code {
+    private CreateOrEditCategoryDto dto { get; set; } = new();
+    bool success;
+    private bool _processing = false;
+    async Task Save()
+    {
+        _processing = true;
+        await httpClient.PostAsJsonAsync<CreateOrEditCategoryDto>("api/category", dto);
+        _processing = false;
+        NavManager.NavigateTo("/category/index");
+    }
+}

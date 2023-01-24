@@ -1,0 +1,34 @@
+﻿@using RestaurantSystem.Shared.DTOs.Menu
+@using RestaurantSystem.Shared.Model
+@inject HttpClient httpClient
+
+    <MudPaper Class="pa-4">
+        <MudForm Model="model" @bind-IsValid=success>
+            <MudTextField Class="mt-3" @bind-Value="model.Description" T="string" Label="Descripcion" Required="true" RequiredError="Descripcion es requerida!" />
+            <MudButton OnClick="OnClickEvent" Class="mt-5" Variant="Variant.Filled" Color="Color.Primary" Disabled="@(!success || processing)">
+                @if (processing)
+                {
+                    <MudProgressCircular Class="ms-n1" Size="Size.Small" Indeterminate="true" />
+                    <MudText Class="ms-2">Cargando</MudText>
+                }
+                else
+                {
+                    <MudText>Guardar</MudText>
+                }
+            </MudButton>
+        </MudForm>
+    </MudPaper>
+
+@code {
+    [Parameter]
+    public CreateOrEditMenuDto model { get; set; }
+    bool success { get; set; }
+    [Parameter]
+    public bool processing { get; set; }
+    [Parameter]
+    public EventCallback ClickEvent { get; set; }
+
+    private async Task OnClickEvent() {
+        await ClickEvent.InvokeAsync();
+    }
+}

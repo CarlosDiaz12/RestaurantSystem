@@ -1,0 +1,37 @@
+﻿@page "/table/edit/{Id:int}"
+@using RestaurantSystem.Shared.DTOs.Table
+@using RestaurantSystem.Shared.Model
+@inject NavigationManager NavManager
+<PageTitle>Editar Mesa</PageTitle>
+@inject HttpClient httpClient
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+
+<MudContainer MaxWidth="MaxWidth.Medium" Class="mt-5">
+    <MudText Typo="Typo.h6" Class="my-4">Editar Mesa</MudText>
+    <TableForm model="@dto" processing="@_processing" ClickEvent="@EditEvent" />
+</MudContainer>
+@code {
+    [Parameter]
+    public int Id { get; set; }
+    private CreateOrEditTableDto dto { get; set; } = new();
+    bool success;
+    private bool _processing = false;
+
+    protected async override Task OnInitializedAsync()
+    {
+        _processing = true;
+        var result =  await httpClient.GetFromJsonAsync<ApiResponse<RestaurantSystem.Core.Entities.Table>>($"api/table/{Id}");
+        dto.Description = result!.Data.Description;
+        dto.SeatsQuantity = result!.Data.SeatsQuantity;
+        dto.Id = Id;
+        _processing = false;
+    }
+    async Task EditEvent()
+    {
+        _processing = true;
+        await httpClient.PutAsJsonAsync<CreateOrEditTableDto>("api/table", dto);
+        _processing = false;
+        NavManager.NavigateTo("/table/index");
+    }
+}

@@ -1,0 +1,83 @@
+﻿@page "/order/index"
+@using RestaurantSystem.Core.Enums;
+@using RestaurantSystem.Shared.DTOs;
+@using RestaurantSystem.Shared.Model;
+@using RestaurantSystem.Client.Util;
+@using System.Globalization
+<PageTitle>Gestion de Ordenes</PageTitle>
+@inject HttpClient httpClient
+@inject NavigationManager NavManager
+@inject IDialogService DialogService
+@using Microsoft.AspNetCore.Authorization
+@attribute [Authorize]
+@inject IJSRuntime JSRuntime
+@inject IDialogService DialogService
+
+<MudText Typo="Typo.h6" Class="my-4">Ordenes</MudText>
+<MudButton Class="mb-4" Variant="Variant.Filled" Color="Color.Success" OnClick="@OnCreateClick">Nueva Orden</MudButton>
+<MudTable Items="@items" Hover="true" Breakpoint="Breakpoint.Sm" Loading="@IsLoading">
+    <HeaderContent>
+        @*<MudTh></MudTh>*@
+        <MudTh>Nombre Cliente</MudTh>
+        <MudTh>Estado</MudTh>
+        <MudTh>Total</MudTh>
+        <MudTh>Acciones</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        @*<MudTd><MudButton Variant="Variant.Outlined" Size="Size.Small" OnClick="@(() => ShowBtnPress(context.Number))">@((context.ShowDetails == true) ? "Hide" : "Show") Address Details</MudButton></MudTd>*@
+        <MudTd DataLabel="Nombre Cliente">@context.ClientName</MudTd>
+        <MudTd DataLabel="Estado">@ViewUtils.TranslateOrderStatus(@context.Status)</MudTd>
+        <MudTd DataLabel="Total">@context.Total.ToString("C", CultureInfo.CurrentCulture)</MudTd>
+        <MudTd DataLabel="Fecha Creacion">@context.Date</MudTd>
+        <MudTd DataLabel="Acciones">
+            <MudButton Variant="Variant.Filled" Size="Size.Small" Color="Color.Secondary" OnClick="(() => OnCreateInvoiceClick(context.Id))">
+                @if (context.Status == OrderStatusEnum.PENDING.ToString())
+                {
+                    <MudText>Facturar</MudText>
+                }
+                else
+                {
+                    <MudText>Ver Factura</MudText>
+                }
+            </MudButton>
+        </MudTd>
+    </RowTemplate>
+</MudTable>
+
+@code {
+    private IEnumerable<ListOrderDto> items { get; set; } = new List<ListOrderDto>();
+    private bool IsLoading { get; set; } = true;
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAll();
+    }
+
+    private async Task LoadAll()
+    {
+        IsLoading = true;
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<IEnumerable<ListOrderDto>>>("api/order");
+        IsLoading = false;
+        items = result!.Data;
+    }
+
+    void OnCreateClick()
+    {
+        NavManager.NavigateTo("/order/create");
+    }
+
+    private async Task ChangeOrderStatus(int orderId, OrderStatusEnum status)
+    {
+        IsLoading = true;
+        var result = await httpClient.GetFromJsonAsync<ApiResponse<bool>>($"api/order/{orderId}/change-status?status={(int)status}");
+        IsLoading = false;
+    }
+
+    async Task OnCreateInvoiceClick(int orderId)
+    {
+        await ChangeOrderStatus(orderId, OrderStatusEnum.DONE);
+        await JSRuntime.InvokeAsync<object>("open", $"/api/invoice/{orderId}", "_blank");
+        IsLoading = true;
+        await LoadAll();
+        IsLoading = false;
+    }
+}

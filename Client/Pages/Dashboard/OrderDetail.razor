@@ -1,0 +1,141 @@
+﻿@using Microsoft.AspNetCore.Authorization
+@using RestaurantSystem.Core.Enums
+@using RestaurantSystem.Shared.DTOs
+@inject HttpClient httpClient
+@inject NavigationManager NavigationManager
+<MudDialog>
+    <DialogContent>
+
+        <MudGrid>
+            <MudItem xs="6">
+                <h4>Orden #@orderDetail.Id</h4>
+            </MudItem>
+            <MudItem xs="6">
+                <MudSelect Immediate="true" T="int" @bind-Value="statusId" Label="Estados" Variant="Variant.Outlined" AnchorOrigin="Origin.BottomCenter">
+                    @foreach (var item in orderEstatus)
+                    {
+                        <MudSelectItem Value="@(item.Value)">@item.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        </MudGrid>
+
+        <MudSimpleTable Style="overflow-x: auto;" Class="mb-8">
+            <thead>
+                <tr>
+                    <th>Mesa</th>
+                    <th>Cliente</th>
+                    <th>Chef</th>
+                    <th>Estado</th>
+                    <th>SubTotal</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                 <tr>
+                    @if (@orderDetail.TableId.HasValue)
+                    {
+                        <td>@orderDetail.Table.Description</td>
+                    } else
+                    {
+                        <td>Pedido para llevar</td>
+                    }
+
+                    <td>@orderDetail.ClientName</td>
+                    @if (orderDetail.Status != "PENDING")
+                    {
+                        @if(orderDetail.Cheff != null)
+                        {
+                            <td>@orderDetail.Cheff.Names</td>
+                        } else
+                        {
+                            <td>No asignado</td>
+                        }
+
+                    }
+                    <td>@orderDetail.Status</td>
+                    <td><MudChip Color="Color.Info">@orderDetail.SubTotal</MudChip></td>
+                    <td><MudChip Color="Color.Success">@orderDetail.Total</MudChip></td>
+                 </tr>
+            </tbody>
+        </MudSimpleTable>
+
+
+        <h5 Class="mb-6">Detalles</h5>
+
+        <MudSimpleTable Style="overflow-x: auto;">
+            <thead>
+                <tr>
+                    <th>Producto</th>
+                    <th>Cantidad</th>
+                    <th>Precio</th>
+                    <th>Total</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var detalles in orderDetail.OrderDetails)
+                {
+                    <tr>
+                        <td>@detalles.MenuItem.Description</td>
+                        <td>@detalles.Quantity</td>
+                        <td>@detalles.UnitPrice</td>
+                        <td>@detalles.Total</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+
+    </DialogContent>
+    <DialogActions>
+        <MudButton OnClick="Cancel">Cerrar</MudButton>
+        <MudButton Color="Color.Success" OnClick="Guardar">Guardar</MudButton>
+    </DialogActions>
+</MudDialog>
+
+
+@code {
+    [CascadingParameter]
+    private Task<AuthenticationState> authenticationStateTask { get; set; }
+    [CascadingParameter] MudDialogInstance MudDialog { get; set; }
+    [Parameter]
+    public ListOrderDto orderDetail { get; set; } = new();
+
+    public string userId { get; set; }
+    public List<SelectItemDTO> orderEstatus = (from OrderStatusEnum itemOrder in Enum.GetValues(typeof(OrderStatusEnum)) select new SelectItemDTO { Value = (int)itemOrder, Name = itemOrder.ToString() }).ToList();
+    public int statusId { get; set; }
+
+
+    protected async override Task OnInitializedAsync()
+    {
+        await GetCurrentUser();
+
+    }
+
+
+    private async Task GetCurrentUser()
+    {
+        var user = (await authenticationStateTask).User;
+        if (user.Identity!.IsAuthenticated)
+        {
+            var currentUserId = user.Claims.FirstOrDefault(x => x.Type == "sub");
+            if (currentUserId != null)
+                this.userId = currentUserId.Value;
+        }
+    }
+
+    void Cancel() => MudDialog.Cancel();
+
+    private async void Guardar()
+    {
+        EditStatusOrderDto data = new EditStatusOrderDto()
+        {
+                OrderId = orderDetail.Id,
+                statusOrderId = statusId,
+                userId = this.userId
+
+        };
+        await httpClient.PostAsJsonAsync<EditStatusOrderDto>("api/order/updateStatus", data);
+        Cancel();
+    }
+
+}
